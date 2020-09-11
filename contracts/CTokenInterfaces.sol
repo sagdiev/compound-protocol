@@ -215,6 +215,7 @@ contract CTokenInterface is CTokenStorage {
     function transferFrom(address src, address dst, uint amount) external returns (bool);
     function approve(address spender, uint amount) external returns (bool);
     function allowance(address owner, address spender) external view returns (uint);
+    function getOwner() external view returns (address);
     function balanceOf(address owner) external view returns (uint);
     function balanceOfUnderlying(address owner) external returns (uint);
     function getAccountSnapshot(address account) external view returns (uint, uint, uint, uint);

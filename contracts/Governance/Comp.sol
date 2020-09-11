@@ -14,6 +14,9 @@ contract Comp {
     /// @notice Total number of tokens in circulation
     uint public constant totalSupply = 9000000e18; // 9 million Comp
 
+    /// @notice The owner of this contract
+    address public owner;
+
     /// @notice Allowance amounts on behalf of others
     mapping (address => mapping (address => uint96)) internal allowances;
 
@@ -61,6 +64,7 @@ contract Comp {
      * @param account The initial account to grant all the tokens
      */
     constructor(address account) public {
+        owner = msg.sender;
         balances[account] = uint96(totalSupply);
         emit Transfer(address(0), account, totalSupply);
     }
@@ -73,6 +77,10 @@ contract Comp {
      */
     function allowance(address account, address spender) external view returns (uint) {
         return allowances[account][spender];
+    }
+
+    function getOwner() external view returns (address) {
+        return owner;
     }
 
     /**
