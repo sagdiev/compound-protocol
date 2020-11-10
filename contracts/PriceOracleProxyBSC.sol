@@ -33,19 +33,19 @@ contract PriceOracleProxyBSC is PriceOracle, Exponential {
     /// @notice Chainlink Aggregators
     mapping(address => AggregatorInterface) public aggregators;
 
-    address public cEthAddress;
+    address public cBnbAddress;
 
     /**
      * @param admin_ The address of admin to set aggregators
      * @param v1PriceOracle_ The address of the v1 price oracle, which will continue to operate and hold prices for collateral assets
-     * @param cEthAddress_ The address of cETH, which will return a constant 1e18, since all prices relative to ether
+     * @param cBnbAddress_ The address of cBNB, which will return a constant 1e18, since all prices relative to bnb
      */
     constructor(address admin_,
                 address v1PriceOracle_,
-                address cEthAddress_) public {
+                address cBnbAddress_) public {
         admin = admin_;
         v1PriceOracle = V1PriceOracleInterface(v1PriceOracle_);
-        cEthAddress = cEthAddress_;
+        cBnbAddress = cBnbAddress_;
     }
 
     /**
@@ -56,8 +56,8 @@ contract PriceOracleProxyBSC is PriceOracle, Exponential {
     function getUnderlyingPrice(CToken cToken) public view returns (uint) {
         address cTokenAddress = address(cToken);
 
-        if (cTokenAddress == cEthAddress) {
-            // ether always worth 1
+        if (cTokenAddress == cBnbAddress) {
+            // bnb always worth 1
             return 1e18;
         }
 
