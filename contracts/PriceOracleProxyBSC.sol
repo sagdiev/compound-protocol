@@ -76,7 +76,7 @@ contract PriceOracleProxyBSC is PriceOracle, Exponential {
             }
 
             uint underlyingDecimals;
-            underlyingDecimals = EIP20Interface(CErc20(cTokenAddress).underlying()).decimals();
+            underlyingDecimals = BEP20Interface(CErc20(cTokenAddress).underlying()).decimals();
             (mathErr, price) = mulScalar(price, 10**(18 - underlyingDecimals));
             if (mathErr != MathError.NO_ERROR ) {
                 // Fallback to v1 PriceOracle

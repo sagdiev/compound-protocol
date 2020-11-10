@@ -1,7 +1,7 @@
 pragma solidity ^0.5.16;
 
-import "../../contracts/EIP20Interface.sol";
+import "../../contracts/BEP20Interface.sol";
 
-contract TetherInterface is EIP20Interface {
+contract TetherInterface is BEP20Interface {
     function setParams(uint newBasisPoints, uint newMaxFee) external;
 }
