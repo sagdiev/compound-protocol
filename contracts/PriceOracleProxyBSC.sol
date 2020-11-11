@@ -1,4 +1,5 @@
 pragma solidity ^0.5.16;
+pragma experimental ABIEncoderV2;
 
 import "./CErc20.sol";
 import "./CToken.sol";
@@ -10,41 +11,72 @@ interface V1PriceOracleInterface {
     function assetPrices(address asset) external view returns (uint);
 }
 
-interface AggregatorInterface {
-  function latestAnswer() external view returns (int256);
-  function latestTimestamp() external view returns (uint256);
-  function latestRound() external view returns (uint256);
-  function getAnswer(uint256 roundId) external view returns (int256);
-  function getTimestamp(uint256 roundId) external view returns (uint256);
+interface IStdReference {
+    /// A structure returned whenever someone requests for standard reference data.
+    struct ReferenceData {
+        uint256 rate; // base/quote exchange rate, multiplied by 1e18.
+        uint256 lastUpdatedBase; // UNIX epoch of the last time when base price gets updated.
+        uint256 lastUpdatedQuote; // UNIX epoch of the last time when quote price gets updated.
+    }
 
-  event AnswerUpdated(int256 indexed current, uint256 indexed roundId, uint256 timestamp);
-  event NewRound(uint256 indexed roundId, address indexed startedBy);
+    /// Returns the price data for the given base/quote pair. Revert if not available.
+    function getReferenceData(string calldata _base, string calldata _quote)
+        external
+        view
+        returns (ReferenceData memory);
+
+    /// Similar to getReferenceData, but with multiple base/quote pairs at once.
+    function getRefenceDataBulk(string[] calldata _bases, string[] calldata _quotes)
+        external
+        view
+        returns (ReferenceData[] memory);
 }
 
 contract PriceOracleProxyBSC is PriceOracle, Exponential {
+    /**
+     * @dev Possible error codes that we can return for BAND oracle
+     */
+    enum OracleError {
+        NO_ERROR,
+        ERR_INVALID,
+        ERR_REVERTED
+    }
+
+    /// @notice Admin address that could set the underlying symbol of crTokens
     address public admin;
 
     /// @notice Indicator that this is a PriceOracle contract (for inspection)
     bool public constant isPriceOracle = true;
 
+    /// @notice Quote symbol we used for BAND reference contract
+    string public constant QUOTE_SYMBOL = "BNB";
+
     /// @notice The v1 price oracle, which will continue to serve prices for v1 assets
     V1PriceOracleInterface public v1PriceOracle;
 
-    /// @notice Chainlink Aggregators
-    mapping(address => AggregatorInterface) public aggregators;
+    /// @notice The BAND oracle contract
+    IStdReference public ref;
 
+    /// @notice The mapping records the crToken and its underlying symbol that we use for BAND reference
+    ///         It's not necessarily equals to the symbol in the underlying contract
+    mapping(address => string) public underlyingSymbols;
+
+    /// @notice crBNB address that has a constant price of 1e18
     address public cBnbAddress;
 
     /**
-     * @param admin_ The address of admin to set aggregators
+     * @param admin_ The address of admin to set underlying symbols for BAND oracle
      * @param v1PriceOracle_ The address of the v1 price oracle, which will continue to operate and hold prices for collateral assets
+     * @param reference_ The price reference contract, which will be served for our primary price source on BSC
      * @param cBnbAddress_ The address of cBNB, which will return a constant 1e18, since all prices relative to bnb
      */
     constructor(address admin_,
                 address v1PriceOracle_,
+                address reference_,
                 address cBnbAddress_) public {
         admin = admin_;
         v1PriceOracle = V1PriceOracleInterface(v1PriceOracle_);
+        ref = IStdReference(reference_);
         cBnbAddress = cBnbAddress_;
     }
 
@@ -61,24 +93,21 @@ contract PriceOracleProxyBSC is PriceOracle, Exponential {
             return 1e18;
         }
 
-        AggregatorInterface aggregator = aggregators[cTokenAddress];
-        if (address(aggregator) != address(0)) {
-            MathError mathErr;
+        bytes memory symbol = bytes(underlyingSymbols[cTokenAddress]);
+        if (symbol.length != 0) {
+            OracleError oracleErr;
             Exp memory price;
-            (mathErr, price) = getPriceFromChainlink(aggregator);
-            if (mathErr != MathError.NO_ERROR) {
+            (oracleErr, price) = getPriceFromBAND(string(symbol));
+            if (oracleErr != OracleError.NO_ERROR) {
                 // Fallback to v1 PriceOracle
                 return getPriceFromV1(cTokenAddress);
             }
 
-            if (price.mantissa == 0) {
-                return getPriceFromV1(cTokenAddress);
-            }
-
+            MathError mathErr;
             uint underlyingDecimals;
             underlyingDecimals = BEP20Interface(CErc20(cTokenAddress).underlying()).decimals();
             (mathErr, price) = mulScalar(price, 10**(18 - underlyingDecimals));
-            if (mathErr != MathError.NO_ERROR ) {
+            if (mathErr != MathError.NO_ERROR) {
                 // Fallback to v1 PriceOracle
                 return getPriceFromV1(cTokenAddress);
             }
@@ -89,12 +118,22 @@ contract PriceOracleProxyBSC is PriceOracle, Exponential {
         return getPriceFromV1(cTokenAddress);
     }
 
-    function getPriceFromChainlink(AggregatorInterface aggregator) internal view returns (MathError, Exp memory) {
-        int256 chainLinkPrice = aggregator.latestAnswer();
-        if (chainLinkPrice <= 0) {
-            return (MathError.INTEGER_OVERFLOW, Exp({mantissa: 0}));
+    function getPriceFromBAND(string memory symbol) internal view returns (OracleError, Exp memory) {
+        (bool success, bytes memory returnData) =
+            address(ref).staticcall(
+                abi.encodePacked(
+                    ref.getReferenceData.selector,
+                    abi.encode(symbol, QUOTE_SYMBOL)
+                )
+            );
+        if (success) {
+            IStdReference.ReferenceData memory data = abi.decode(returnData, (IStdReference.ReferenceData));
+            if (data.rate == 0) {
+                return (OracleError.ERR_INVALID, Exp({mantissa: 0}));
+            }
+            return (OracleError.NO_ERROR, Exp({mantissa: data.rate}));
         }
-        return (MathError.NO_ERROR, Exp({mantissa: uint(chainLinkPrice)}));
+        return (OracleError.ERR_REVERTED, Exp({mantissa: 0}));
     }
 
     function getPriceFromV1(address cTokenAddress) internal view returns (uint) {
@@ -102,13 +141,15 @@ contract PriceOracleProxyBSC is PriceOracle, Exponential {
         return v1PriceOracle.assetPrices(underlying);
     }
 
-    event AggregatorUpdated(address cTokenAddress, address source);
+    function _setAdmin(address _admin) external {
+        require(msg.sender == admin, "!admin");
+        admin = _admin;
+    }
 
-    function _setAggregators(address[] calldata cTokenAddresses, address[] calldata sources) external {
-        require(msg.sender == admin, "only the admin may set the aggregators");
+    function _setUnderlyingSymbols(address[] calldata cTokenAddresses, string[] calldata symbols) external {
+        require(msg.sender == admin, "!admin");
         for (uint i = 0; i < cTokenAddresses.length; i++) {
-            aggregators[cTokenAddresses[i]] = AggregatorInterface(sources[i]);
-            emit AggregatorUpdated(cTokenAddresses[i], sources[i]);
+            underlyingSymbols[cTokenAddresses[i]] = symbols[i];
         }
     }
 }
