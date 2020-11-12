@@ -1,4 +1,4 @@
-pragma solidity 0.5.16;
+pragma solidity ^0.5.16;
 pragma experimental ABIEncoderV2;
 
 interface IBEP20 {
@@ -339,7 +339,7 @@ contract Ownable is Context {
 
 contract Comp is Context, IBEP20, Ownable {
     using SafeMath for uint256;
-    
+
     /// @notice EIP-20 token name for this token
     string public constant _name = "Cream";
 
@@ -351,7 +351,7 @@ contract Comp is Context, IBEP20, Ownable {
 
     /// @notice Total number of tokens in circulation
     uint public _totalSupply = 0;
-    
+
     uint256 public _cap = 9000000e18;
 
     /// @notice Allowance amounts on behalf of others
@@ -398,14 +398,14 @@ contract Comp is Context, IBEP20, Ownable {
         _balances[account] = uint96(_totalSupply);
         emit Transfer(address(0), account, _totalSupply);
     }
-    
+
     /**
    * @dev Returns the cap on the token's total supply.
    */
     function cap() public view returns (uint256) {
         return _cap;
     }
-   
+
      /**
     * @dev Returns the bep token owner.
     */
@@ -453,7 +453,7 @@ contract Comp is Context, IBEP20, Ownable {
     function mint(uint256 rawAmount) public onlyOwner returns (bool) {
         require(_msgSender() != address(0), "BEP20: mint to the zero address");
         require(_totalSupply.add(rawAmount) <= cap(), "Cannot mint more than cap");
-        
+
         uint96 amount = safe96(rawAmount, "Comp::mint: amount exceeds 96 bits");
 
         _totalSupply = _totalSupply.add(amount);
@@ -475,7 +475,7 @@ contract Comp is Context, IBEP20, Ownable {
     */
     function burn(uint256 rawAmount) public onlyOwner returns (bool) {
         require(_msgSender() != address(0), "BEP20: burn from the zero address");
-        
+
         uint96 amount = safe96(rawAmount, "Comp::burn: amount exceeds 96 bits");
 
         _balances[_msgSender()] = sub96(_balances[_msgSender()], amount, "BEP20: burn amount exceeds balance");
