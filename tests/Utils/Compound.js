@@ -238,6 +238,10 @@ async function makePriceOracle(opts = {}) {
   }
 }
 
+async function makeBandReference(opts = {}) {
+  return await deploy('BandReference');
+}
+
 async function makeToken(opts = {}) {
   const {
     root = saddle.account,
@@ -410,6 +414,7 @@ module.exports = {
   makeCToken,
   makeInterestRateModel,
   makePriceOracle,
+  makeBandReference,
   makeToken,
 
   balanceOf,
