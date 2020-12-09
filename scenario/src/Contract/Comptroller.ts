@@ -14,6 +14,7 @@ interface ComptrollerMethods {
   liquidationIncentiveMantissa(): Callable<number>
   closeFactorMantissa(): Callable<number>
   getBlockNumber(): Callable<number>
+  setBlockNumber(encodedNumber): Sendable<number>
   collateralFactor(string): Callable<string>
   markets(string): Callable<{0: boolean, 1: number, 2?: boolean}>
   _setMintPaused(bool): Sendable<number>
@@ -49,6 +50,7 @@ interface ComptrollerMethods {
   _dropCompMarket(market: string): Sendable<void>
   getCompMarkets(): Callable<string[]>
   refreshCompSpeeds(): Sendable<void>
+  _setCompSpeeds(cTokens:string[], speeds:encodedNumber[]): Sendable<void>
   compRate(): Callable<number>
   compSupplyState(string): Callable<string>
   compBorrowState(string): Callable<string>
@@ -58,6 +60,10 @@ interface ComptrollerMethods {
   compSpeeds(string): Callable<string>
   claimComp(string): Sendable<void>
   _setCompRate(encodedNumber): Sendable<void>
+  _setMarketSupplyCaps(cTokens:string[], supplyCaps:encodedNumber[]): Sendable<void>
+  _setSupplyCapGuardian(string): Sendable<void>
+  supplyCapGuardian(): Callable<string>
+  supplyCaps(string): Callable<string>
   _setMarketBorrowCaps(cTokens:string[], borrowCaps:encodedNumber[]): Sendable<void>
   _setBorrowCapGuardian(string): Sendable<void>
   borrowCapGuardian(): Callable<string>

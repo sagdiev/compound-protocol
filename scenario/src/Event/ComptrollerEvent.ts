@@ -260,6 +260,18 @@ async function setCompRate(world: World, from: string, comptroller: Comptroller,
   return world;
 }
 
+async function setCompSpeeds(world: World, from: string, comptroller: Comptroller, cTokens: CToken[], speeds: NumberV[]): Promise<World> {
+  let invokation = await invoke(world, comptroller.methods._setCompSpeeds(cTokens.map(c => c._address), speeds.map(s => s.encode())), from, ComptrollerErrorReporter);
+
+  world = addAction(
+    world,
+    `Set COMP markets ${cTokens.map(c => c.name)} speeds to ${speeds}`,
+    invokation
+  );
+
+  return world;
+}
+
 async function printLiquidity(world: World, comptroller: Comptroller): Promise<World> {
   let enterEvents = await getPastEvents(world, comptroller, 'StdComptroller', 'MarketEntered');
   let addresses = enterEvents.map((event) => event.returnValues['account']);
@@ -358,6 +370,30 @@ async function setGuardianMarketPaused(world: World, from: string, comptroller: 
   return world;
 }
 
+async function setMarketSupplyCaps(world: World, from: string, comptroller: Comptroller, cTokens: CToken[], supplyCaps: NumberV[]): Promise<World> {
+  let invokation = await invoke(world, comptroller.methods._setMarketSupplyCaps(cTokens.map(c => c._address), supplyCaps.map(c => c.encode())), from, ComptrollerErrorReporter);
+
+  world = addAction(
+      world,
+      `Supply caps on ${cTokens} set to ${supplyCaps}`,
+      invokation
+  );
+
+  return world;
+}
+
+async function setSupplyCapGuardian(world: World, from: string, comptroller: Comptroller, newSupplyCapGuardian: string): Promise<World> {
+  let invokation = await invoke(world, comptroller.methods._setSupplyCapGuardian(newSupplyCapGuardian), from, ComptrollerErrorReporter);
+
+  world = addAction(
+      world,
+      `Comptroller: ${describeUser(world, from)} sets supply cap guardian to ${newSupplyCapGuardian}`,
+      invokation
+  );
+
+  return world;
+}
+
 async function setMarketBorrowCaps(world: World, from: string, comptroller: Comptroller, cTokens: CToken[], borrowCaps: NumberV[]): Promise<World> {
   let invokation = await invoke(world, comptroller.methods._setMarketBorrowCaps(cTokens.map(c => c._address), borrowCaps.map(c => c.encode())), from, ComptrollerErrorReporter);
 
@@ -376,6 +412,18 @@ async function setBorrowCapGuardian(world: World, from: string, comptroller: Com
   world = addAction(
     world,
     `Comptroller: ${describeUser(world, from)} sets borrow cap guardian to ${newBorrowCapGuardian}`,
+    invokation
+  );
+
+  return world;
+}
+
+async function setBlockNumber(world: World, from: string, comptroller: Comptroller, blockNumber: NumberV): Promise<World> {
+  let invokation = await invoke(world, comptroller.methods.setBlockNumber(blockNumber.encode()), from, ComptrollerErrorReporter);
+
+  return addAction(
+    world,
+    `Set Governor blockNumber to ${blockNumber.show()}`,
     invokation
   );
 
@@ -660,7 +708,7 @@ export function comptrollerCommands() {
         new Arg("cTokens", getCTokenV, {mapped: true})
       ],
       (world, from, {comptroller, cTokens}) => addCompMarkets(world, from, comptroller, cTokens)
-     ),
+    ),
     new Command<{comptroller: Comptroller, cToken: CToken}>(`
       #### DropCompMarket
 
@@ -673,7 +721,7 @@ export function comptrollerCommands() {
         new Arg("cToken", getCTokenV)
       ],
       (world, from, {comptroller, cToken}) => dropCompMarket(world, from, comptroller, cToken)
-     ),
+    ),
 
     new Command<{comptroller: Comptroller}>(`
       #### RefreshCompSpeeds
@@ -713,6 +761,47 @@ export function comptrollerCommands() {
       ],
       (world, from, {comptroller, rate}) => setCompRate(world, from, comptroller, rate)
     ),
+    new Command<{comptroller: Comptroller, cTokens: CToken[], speeds: NumberV[]}>(`
+      #### SetCompSpeeds
+
+      * "Comptroller SetCompSpeeds (<CToken> ...) (<speed> ...)" - Set the COMP market speeds
+      * E.g. "Comptroller SetCompSpeeds (cZRX cBAT) (1e18, 1e18)
+      `,
+      "SetCompSpeeds",
+      [
+        new Arg("comptroller", getComptroller, {implicit: true}),
+        new Arg("cTokens", getCTokenV, {mapped: true}),
+        new Arg("speeds", getNumberV, {mapped: true})
+      ],
+      (world, from, {comptroller, cTokens, speeds}) => setCompSpeeds(world, from, comptroller, cTokens, speeds)
+    ),
+    new Command<{comptroller: Comptroller, cTokens: CToken[], supplyCaps: NumberV[]}>(`
+      #### SetMarketSupplyCaps
+
+      * "Comptroller SetMarketSupplyCaps (<CToken> ...) (<supplyCap> ...)" - Sets Market Supply Caps
+      * E.g. "Comptroller SetMarketSupplyCaps (cZRX cUSDC) (10000.0e18, 1000.0e6)
+      `,
+        "SetMarketSupplyCaps",
+        [
+          new Arg("comptroller", getComptroller, {implicit: true}),
+          new Arg("cTokens", getCTokenV, {mapped: true}),
+          new Arg("supplyCaps", getNumberV, {mapped: true})
+        ],
+        (world, from, {comptroller, cTokens, supplyCaps}) => setMarketSupplyCaps(world, from, comptroller, cTokens, supplyCaps)
+    ),
+    new Command<{comptroller: Comptroller, newSupplyCapGuardian: AddressV}>(`
+      #### SetSupplyCapGuardian
+
+        * "Comptroller SetSupplyCapGuardian newSupplyCapGuardian:<Address>" - Sets the Supply Cap Guardian for the Comptroller
+          * E.g. "Comptroller SetSupplyCapGuardian Geoff"
+      `,
+        "SetSupplyCapGuardian",
+        [
+          new Arg("comptroller", getComptroller, {implicit: true}),
+          new Arg("newSupplyCapGuardian", getAddressV)
+        ],
+        (world, from, {comptroller, newSupplyCapGuardian}) => setSupplyCapGuardian(world, from, comptroller, newSupplyCapGuardian.val)
+    ),
     new Command<{comptroller: Comptroller, cTokens: CToken[], borrowCaps: NumberV[]}>(`
       #### SetMarketBorrowCaps
 
@@ -725,7 +814,7 @@ export function comptrollerCommands() {
         new Arg("cTokens", getCTokenV, {mapped: true}),
         new Arg("borrowCaps", getNumberV, {mapped: true})
       ],
-      (world, from, {comptroller,cTokens,borrowCaps}) => setMarketBorrowCaps(world, from, comptroller, cTokens, borrowCaps)
+      (world, from, {comptroller, cTokens, borrowCaps}) => setMarketBorrowCaps(world, from, comptroller, cTokens, borrowCaps)
     ),
     new Command<{comptroller: Comptroller, newBorrowCapGuardian: AddressV}>(`
         #### SetBorrowCapGuardian
@@ -739,7 +828,20 @@ export function comptrollerCommands() {
         new Arg("newBorrowCapGuardian", getAddressV)
       ],
       (world, from, {comptroller, newBorrowCapGuardian}) => setBorrowCapGuardian(world, from, comptroller, newBorrowCapGuardian.val)
-    )
+    ),
+    new Command<{comptroller: Comptroller, blockNumber: NumberV}>(`
+        #### SetBlockNumber
+
+        * "Comptroller SetBlockNumber <BlockNumber>" - Sets the blockNumber of the Comptroller
+        * E.g. "Comptroller SetBlockNumber 500"
+      `,
+      'SetBlockNumber',
+      [
+        new Arg('comptroller', getComptroller, {implicit: true}),
+        new Arg('blockNumber', getNumberV)
+      ],
+      (world, from, {comptroller, blockNumber}) => setBlockNumber(world, from, comptroller, blockNumber)
+    ),
   ];
 }
 
