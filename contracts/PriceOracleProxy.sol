@@ -53,6 +53,9 @@ contract PriceOracleProxy is PriceOracle, Exponential {
     /// @notice Chainlink Aggregators
     mapping(address => AggregatorV3Interface) public aggregators;
 
+    /// @notice Chainlink Aggregators for Compound tokens
+    mapping(address => AggregatorV3Interface) public cAggregators;
+
     /// @notice Mapping of crToken to y-vault token
     mapping(address => address) public yVaults;
 
@@ -101,6 +104,21 @@ contract PriceOracleProxy is PriceOracle, Exponential {
 
             uint underlyingDecimals = EIP20Interface(CErc20(cTokenAddress).underlying()).decimals();
             return mul_(price, 10**(18 - underlyingDecimals));
+        }
+
+        AggregatorV3Interface cAggregator = cAggregators[cTokenAddress];
+        if (address(cAggregator) != address(0)) {
+            uint underlyingPrice = getPriceFromChainlink(cAggregator);
+
+            // The underlying token is a compound cToken.
+            address compoundToken = CErc20(cTokenAddress).underlying();
+
+            address underlying = CErc20(compoundToken).underlying();
+            uint exchangeRate = CErc20(compoundToken).exchangeRateCurrent();
+
+            uint underlyingDecimals = EIP20Interface(underlying).decimals();
+            uint compoundTokenPrice = mul_(underlyingPrice, 10**(18 - underlyingDecimals));
+            return mul_(compoundTokenPrice, Exp({mantissa: exchangeRate}));
         }
 
         return getPriceFromV1(cTokenAddress);
