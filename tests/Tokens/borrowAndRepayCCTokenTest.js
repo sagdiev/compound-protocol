@@ -23,6 +23,7 @@ async function preBorrow(cToken, borrower, borrowAmount) {
   await send(cToken.comptroller, 'setBorrowVerify', [true]);
   await send(cToken.interestRateModel, 'setFailBorrowRate', [false]);
   await send(cToken.underlying, 'harnessSetBalance', [cToken._address, borrowAmount]);
+  await send(cToken, 'harnessSetInternalCash', [borrowAmount]);
   await send(cToken, 'harnessSetFailTransferToAddress', [borrower, false]);
   await send(cToken, 'harnessSetAccountBorrows', [borrower, 0, 0]);
   await send(cToken, 'harnessSetTotalBorrows', [0]);
@@ -67,10 +68,10 @@ async function repayBorrowBehalf(cToken, payer, borrower, repayAmount) {
 }
 
 describe('CToken', function () {
-  let cToken, root, borrower, benefactor, accounts;
+  let cToken, root, minter, borrower, benefactor, accounts;
   beforeEach(async () => {
-    [root, borrower, benefactor, ...accounts] = saddle.accounts;
-    cToken = await makeCToken({comptrollerOpts: {kind: 'bool'}});
+    [root, minter, borrower, benefactor, ...accounts] = saddle.accounts;
+    cToken = await makeCToken({kind: 'cctoken', comptrollerOpts: {kind: 'bool'}});
   });
 
   describe('borrowFresh', () => {
@@ -82,7 +83,7 @@ describe('CToken', function () {
     });
 
     it("proceeds if comptroller tells it to", async () => {
-      await expect(await borrowFresh(cToken, borrower, borrowAmount)).toSucceed();
+      expect(await borrowFresh(cToken, borrower, borrowAmount)).toSucceed();
     });
 
     it("fails if market not fresh", async () => {
@@ -91,8 +92,8 @@ describe('CToken', function () {
     });
 
     it("continues if fresh", async () => {
-      await expect(await send(cToken, 'accrueInterest')).toSucceed();
-      await expect(await borrowFresh(cToken, borrower, borrowAmount)).toSucceed();
+      expect(await send(cToken, 'accrueInterest')).toSucceed();
+      expect(await borrowFresh(cToken, borrower, borrowAmount)).toSucceed();
     });
 
     it("fails if error if protocol has less than borrowAmount of underlying", async () => {
@@ -115,7 +116,7 @@ describe('CToken', function () {
     });
 
     it("reverts if transfer out fails", async () => {
-      await send(cToken, 'harnessSetFailTransferToAddress', [borrower, true]);
+      await send(cToken.underlying, 'harnessSetFailTransferToAddress', [borrower, true]);
       await expect(borrowFresh(cToken, borrower, borrowAmount)).rejects.toRevert("revert TOKEN_TRANSFER_OUT_FAILED");
     });
 
@@ -131,7 +132,6 @@ describe('CToken', function () {
       const result = await borrowFresh(cToken, borrower, borrowAmount);
       expect(result).toSucceed();
       expect(await balanceOf(cToken.underlying, borrower)).toEqualNumber(beforeAccountCash.plus(borrowAmount));
-      expect(await balanceOf(cToken.underlying, cToken._address)).toEqualNumber(beforeProtocolCash.minus(borrowAmount));
       expect(await totalBorrows(cToken)).toEqualNumber(beforeProtocolBorrows.plus(borrowAmount));
       expect(result).toHaveLog('Transfer', {
         from: cToken._address,
@@ -232,7 +232,6 @@ describe('CToken', function () {
         it("transfers the underlying cash, and emits Transfer, RepayBorrow events", async () => {
           const beforeProtocolCash = await balanceOf(cToken.underlying, cToken._address);
           const result = await repayBorrowFresh(cToken, payer, borrower, repayAmount);
-          expect(await balanceOf(cToken.underlying, cToken._address)).toEqualNumber(beforeProtocolCash.plus(repayAmount));
           expect(result).toHaveLog('Transfer', {
             from: payer,
             to: cToken._address,

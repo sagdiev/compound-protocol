@@ -157,6 +157,31 @@ contract Exponential is CarefulMath {
     }
 
     /**
+     * @dev Divide a scalar by an Exp, returning a new Exp.
+     */
+    function div_ScalarByExp(uint scalar, Exp memory divisor) pure internal returns (Exp memory) {
+        /*
+          We are doing this as:
+          getExp(mulUInt(expScale, scalar), divisor.mantissa)
+
+          How it works:
+          Exp = a / b;
+          Scalar = s;
+          `s / (a / b)` = `b * s / a` and since for an Exp `a = mantissa, b = expScale`
+        */
+        uint numerator = mul_(expScale, scalar);
+        return Exp({mantissa: div_(numerator, divisor)});
+    }
+
+    /**
+     * @dev Divide a scalar by an Exp, then truncate to return an unsigned integer.
+     */
+    function div_ScalarByExpTruncate(uint scalar, Exp memory divisor) pure internal returns (uint) {
+        Exp memory fraction = div_ScalarByExp(scalar, divisor);
+        return truncate(fraction);
+    }
+
+    /**
      * @dev Multiplies two exponentials, returning a new exponential.
      */
     function mulExp(Exp memory a, Exp memory b) pure internal returns (MathError, Exp memory) {
@@ -355,5 +380,51 @@ contract Exponential is CarefulMath {
 
     function fraction(uint a, uint b) pure internal returns (Double memory) {
         return Double({mantissa: div_(mul_(a, doubleScale), b)});
+    }
+
+    // implementation from https://github.com/Uniswap/uniswap-lib/commit/99f3f28770640ba1bb1ff460ac7c5292fb8291a0
+    // original implementation: https://github.com/abdk-consulting/abdk-libraries-solidity/blob/master/ABDKMath64x64.sol#L687
+    function sqrt(uint x) pure internal returns (uint) {
+        if (x == 0) return 0;
+        uint xx = x;
+        uint r = 1;
+
+        if (xx >= 0x100000000000000000000000000000000) {
+            xx >>= 128;
+            r <<= 64;
+        }
+        if (xx >= 0x10000000000000000) {
+            xx >>= 64;
+            r <<= 32;
+        }
+        if (xx >= 0x100000000) {
+            xx >>= 32;
+            r <<= 16;
+        }
+        if (xx >= 0x10000) {
+            xx >>= 16;
+            r <<= 8;
+        }
+        if (xx >= 0x100) {
+            xx >>= 8;
+            r <<= 4;
+        }
+        if (xx >= 0x10) {
+            xx >>= 4;
+            r <<= 2;
+        }
+        if (xx >= 0x8) {
+            r <<= 1;
+        }
+
+        r = (r + x / r) >> 1;
+        r = (r + x / r) >> 1;
+        r = (r + x / r) >> 1;
+        r = (r + x / r) >> 1;
+        r = (r + x / r) >> 1;
+        r = (r + x / r) >> 1;
+        r = (r + x / r) >> 1; // Seven iterations should be enough
+        uint r1 = x / r;
+        return (r < r1 ? r : r1);
     }
 }

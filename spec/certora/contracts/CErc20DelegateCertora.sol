@@ -1,7 +1,7 @@
 pragma solidity ^0.5.16;
 
 import "../../../contracts/CErc20Delegate.sol";
-import "../../../contracts/EIP20Interface.sol";
+import "../../../contracts/BEP20Interface.sol";
 
 import "./CTokenCollateral.sol";
 

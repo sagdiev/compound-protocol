@@ -1,7 +1,7 @@
 pragma solidity ^0.5.16;
 
 import "../../../contracts/CErc20Immutable.sol";
-import "../../../contracts/EIP20Interface.sol";
+import "../../../contracts/BEP20Interface.sol";
 
 import "./CTokenCollateral.sol";
 
@@ -35,7 +35,7 @@ contract CErc20ImmutableCertora is CErc20Immutable {
     }
 
     function getCashOf(address account) public view returns (uint) {
-        return EIP20Interface(underlying).balanceOf(account);
+        return BEP20Interface(underlying).balanceOf(account);
     }
 
     function getCashOfInOther(address account) public view returns (uint) {
