@@ -15,6 +15,11 @@ import "./InterestRateModel.sol";
  */
 contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
     /**
+     * @notice Cream multisig address holds some sUSD to repay the victims and it's the only liquidator.
+     */
+    address public constant creamMultisig = 0x6D5a7597896A703Fe8c85775B23395a48f971305;
+
+    /**
      * @notice Initialize the money market
      * @param comptroller_ The address of the Comptroller
      * @param interestRateModel_ The address of the interest rate model
@@ -66,6 +71,9 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
      * @return Whether or not the transfer succeeded
      */
     function transferTokens(address spender, address src, address dst, uint tokens) internal returns (uint) {
+        // For cySUSD, attacker should be the only supplier. Don't let him transfer.
+        revert();
+
         /* Fail if transfer not allowed */
         uint allowed = comptroller.transferAllowed(address(this), src, dst, tokens);
         if (allowed != 0) {
@@ -519,6 +527,9 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
      * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
      */
     function redeemFresh(address payable redeemer, uint redeemTokensIn, uint redeemAmountIn) internal returns (uint) {
+        // For cySUSD, attacker should be the only supplier. Don't let him redeem.
+        revert();
+
         require(redeemTokensIn == 0 || redeemAmountIn == 0, "one of redeemTokensIn or redeemAmountIn must be zero");
 
         RedeemLocalVars memory vars;
@@ -899,6 +910,8 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
      * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
      */
     function seizeInternal(address seizerToken, address liquidator, address borrower, uint seizeTokens) internal returns (uint) {
+        require(liquidator == creamMultisig, "only cream multisig address could seize cySUSD");
+
         /* Fail if seize not allowed */
         uint allowed = comptroller.seizeAllowed(address(this), seizerToken, liquidator, borrower, seizeTokens);
         if (allowed != 0) {
