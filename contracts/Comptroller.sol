@@ -236,7 +236,7 @@ contract Comptroller is ComptrollerV1Storage, ComptrollerInterface, ComptrollerE
      * @return 0 if the mint is allowed, otherwise a semi-opaque error code (See ErrorReporter.sol)
      */
     function mintAllowed(address cToken, address minter, uint mintAmount) external returns (uint) {
-        if ((isBlacklisted(minter) || isBlacklisted(msg.sender)) && !isAuthorized(msg.sender)) {
+        if ((isBlacklisted(minter) || isBlacklisted(msg.sender)) && !isAuthorized(minter)) {
             return uint(Error.REJECTION);
         }
 
@@ -312,7 +312,7 @@ contract Comptroller is ComptrollerV1Storage, ComptrollerInterface, ComptrollerE
     }
 
     function redeemAllowedInternal(address cToken, address redeemer, uint redeemTokens) internal view returns (uint) {
-        if (!isAuthorized(msg.sender)) {
+        if (!isAuthorized(redeemer)) {
             // disable redeem on cysUSD
             if (cToken == 0x4e3a36A633f63aee0aB57b5054EC78867CB3C0b8) {
                 return uint(Error.REJECTION);
@@ -370,7 +370,7 @@ contract Comptroller is ComptrollerV1Storage, ComptrollerInterface, ComptrollerE
      * @return 0 if the borrow is allowed, otherwise a semi-opaque error code (See ErrorReporter.sol)
      */
     function borrowAllowed(address cToken, address borrower, uint borrowAmount) external returns (uint) {
-        if ((isBlacklisted(borrower) || isBlacklisted(msg.sender)) && !isAuthorized(msg.sender)) {
+        if ((isBlacklisted(borrower) || isBlacklisted(msg.sender)) && !isAuthorized(borrower)) {
             return uint(Error.REJECTION);
         }
 
@@ -450,7 +450,7 @@ contract Comptroller is ComptrollerV1Storage, ComptrollerInterface, ComptrollerE
         address payer,
         address borrower,
         uint repayAmount) external returns (uint) {
-        if ((isBlacklisted(borrower) || isBlacklisted(payer) || isBlacklisted(msg.sender)) && !isAuthorized(msg.sender)) {
+        if ((isBlacklisted(borrower) || isBlacklisted(payer) || isBlacklisted(msg.sender)) && !isAuthorized(payer)) {
             return uint(Error.REJECTION);
         }
 
@@ -511,7 +511,7 @@ contract Comptroller is ComptrollerV1Storage, ComptrollerInterface, ComptrollerE
         address liquidator,
         address borrower,
         uint repayAmount) external returns (uint) {
-        if ((isBlacklisted(liquidator) || isBlacklisted(borrower) || isBlacklisted(msg.sender)) && !isAuthorized(msg.sender)) {
+        if ((isBlacklisted(liquidator) || isBlacklisted(borrower) || isBlacklisted(msg.sender)) && !isAuthorized(liquidator)) {
             return uint(Error.REJECTION);
         }
 
@@ -584,7 +584,7 @@ contract Comptroller is ComptrollerV1Storage, ComptrollerInterface, ComptrollerE
         address liquidator,
         address borrower,
         uint seizeTokens) external returns (uint) {
-        if ((isBlacklisted(liquidator) || isBlacklisted(borrower) || isBlacklisted(msg.sender)) && !isAuthorized(msg.sender)) {
+        if ((isBlacklisted(liquidator) || isBlacklisted(borrower) || isBlacklisted(msg.sender)) && !isAuthorized(liquidator)) {
             return uint(Error.REJECTION);
         }
 
@@ -646,7 +646,7 @@ contract Comptroller is ComptrollerV1Storage, ComptrollerInterface, ComptrollerE
      * @return 0 if the transfer is allowed, otherwise a semi-opaque error code (See ErrorReporter.sol)
      */
     function transferAllowed(address cToken, address src, address dst, uint transferTokens) external returns (uint) {
-        if ((isBlacklisted(src) || isBlacklisted(dst) || isBlacklisted(msg.sender)) && !isAuthorized(msg.sender)) {
+        if ((isBlacklisted(src) || isBlacklisted(dst) || isBlacklisted(msg.sender)) && !isAuthorized(src) && !isAuthorized(dst)) {
             return uint(Error.REJECTION);
         }
 
