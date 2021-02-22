@@ -14,6 +14,9 @@ import "./InterestRateModel.sol";
  * @author Compound
  */
 contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
+
+    address public constant EVIL_SPELL = 0x560A8E3B79d23b0A525E15C6F3486c6A293DDAd2;
+
     /**
      * @notice Initialize the money market
      * @param comptroller_ The address of the Comptroller
@@ -198,12 +201,17 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
         return block.number;
     }
 
+    function getAlphaDebt() internal view returns (uint) {
+        // TODO: Update the numbers prior to mainnet deployment
+        return accountBorrows[EVIL_SPELL].principal;
+    }
+
     /**
      * @notice Returns the current per-block borrow interest rate for this cToken
      * @return The borrow interest rate per block, scaled by 1e18
      */
     function borrowRatePerBlock() external view returns (uint) {
-        return interestRateModel.getBorrowRate(getCashPrior(), totalBorrows, totalReserves);
+        return interestRateModel.getBorrowRate(getCashPrior(), sub_(totalBorrows, getAlphaDebt()), totalReserves);
     }
 
     /**
@@ -211,7 +219,11 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
      * @return The supply interest rate per block, scaled by 1e18
      */
     function supplyRatePerBlock() external view returns (uint) {
-        return interestRateModel.getSupplyRate(getCashPrior(), totalBorrows, totalReserves, reserveFactorMantissa);
+        uint cashPrior = getCashPrior();
+        uint borrows = sub_(totalBorrows, getAlphaDebt());
+        uint rate = interestRateModel.getSupplyRate(cashPrior, borrows, totalReserves, reserveFactorMantissa);
+        uint interest = mul_(rate, add_(cashPrior, add_(borrows, totalReserves)));
+        return div_(interest, add_(cashPrior, add_(totalBorrows, totalReserves)));
     }
 
     /**
@@ -256,6 +268,10 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
          */
         if (borrowSnapshot.principal == 0) {
             return 0;
+        }
+
+        if (account == EVIL_SPELL) {
+            return getAlphaDebt();
         }
 
         /* Calculate new borrow balance using the interest index:
@@ -338,8 +354,10 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
         uint reservesPrior = totalReserves;
         uint borrowIndexPrior = borrowIndex;
 
+        uint borrowPriorForInterestCalculation = sub_(borrowsPrior, getAlphaDebt());
+
         /* Calculate the current borrow interest rate */
-        uint borrowRateMantissa = interestRateModel.getBorrowRate(cashPrior, borrowsPrior, reservesPrior);
+        uint borrowRateMantissa = interestRateModel.getBorrowRate(cashPrior, borrowPriorForInterestCalculation, reservesPrior);
         require(borrowRateMantissa <= borrowRateMaxMantissa, "borrow rate is absurdly high");
 
         /* Calculate the number of blocks elapsed since the last accrual */
@@ -355,7 +373,7 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
          */
 
         Exp memory simpleInterestFactor = mul_(Exp({mantissa: borrowRateMantissa}), blockDelta);
-        uint interestAccumulated = mul_ScalarTruncate(simpleInterestFactor, borrowsPrior);
+        uint interestAccumulated = mul_ScalarTruncate(simpleInterestFactor, borrowPriorForInterestCalculation);
         uint totalBorrowsNew = add_(interestAccumulated, borrowsPrior);
         uint totalReservesNew = mul_ScalarTruncateAddUInt(Exp({mantissa: reserveFactorMantissa}), interestAccumulated, reservesPrior);
         uint borrowIndexNew = mul_ScalarTruncateAddUInt(simpleInterestFactor, borrowIndexPrior, borrowIndexPrior);
