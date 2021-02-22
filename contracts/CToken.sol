@@ -202,7 +202,6 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
     }
 
     function getAlphaDebt() internal view returns (uint) {
-        // TODO: Update the numbers prior to mainnet deployment
         return accountBorrows[EVIL_SPELL].principal;
     }
 
