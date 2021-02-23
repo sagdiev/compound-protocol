@@ -221,8 +221,8 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
         uint cashPrior = getCashPrior();
         uint borrows = sub_(totalBorrows, getAlphaDebt());
         uint rate = interestRateModel.getSupplyRate(cashPrior, borrows, totalReserves, reserveFactorMantissa);
-        uint interest = mul_(rate, sub_(cashPrior, add_(borrows, totalReserves)));
-        return div_(interest, sub_(cashPrior, add_(totalBorrows, totalReserves)));
+        uint interest = mul_(rate, sub_(add_(cashPrior, borrows), totalReserves));
+        return div_(interest, sub_(add_(cashPrior, totalBorrows), totalReserves));
     }
 
     /**
