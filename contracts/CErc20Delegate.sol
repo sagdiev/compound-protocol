@@ -27,6 +27,24 @@ contract CErc20Delegate is CErc20, CDelegateInterface {
         }
 
         require(msg.sender == admin, "only the admin may call _becomeImplementation");
+
+        _syncTotalBorrowsAndAlphaDebt();
+    }
+
+    function _syncTotalBorrowsAndAlphaDebt() internal {
+        require(accrueInterest() == uint(Error.NO_ERROR), "accrue interest failed");
+
+        address evilSpell = 0x560A8E3B79d23b0A525E15C6F3486c6A293DDAd2;
+        BorrowSnapshot storage borrowSnapshot = accountBorrows[evilSpell];
+        require(borrowSnapshot.principal != 0);
+
+        /* Calculate new borrow balance using the interest index:
+         *  recentBorrowBalance = borrower.borrowBalance * market.borrowIndex / borrower.borrowIndex
+         */
+        uint principalTimesIndex = mul_(borrowSnapshot.principal, borrowIndex);
+        uint result = div_(principalTimesIndex, borrowSnapshot.interestIndex);
+        accountBorrows[evilSpell].principal = result;
+        accountBorrows[evilSpell].interestIndex = borrowIndex;
     }
 
     /**
