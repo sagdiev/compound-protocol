@@ -213,6 +213,20 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
         return interestRateModel.getBorrowRate(getCashPrior(), sub_(totalBorrows, getAlphaDebt()), totalReserves);
     }
 
+    function estimateBorrowRatePerBlockAfterChange(uint256 change, bool repay) external view returns (uint) {
+        uint256 cashPriorNew;
+        uint256 totalBorrowsNew;
+
+        if (repay) {
+            cashPriorNew = add_(getCashPrior(), change);
+            totalBorrowsNew = sub_(totalBorrows, change);
+        } else {
+            cashPriorNew = sub_(getCashPrior(), change);
+            totalBorrowsNew = add_(totalBorrows, change);
+        }
+        return interestRateModel.getBorrowRate(cashPriorNew, sub_(totalBorrowsNew, getAlphaDebt()), totalReserves);
+    }
+
     /**
      * @notice Returns the current per-block supply interest rate for this cToken
      * @return The supply interest rate per block, scaled by 1e18
@@ -223,6 +237,24 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
         uint rate = interestRateModel.getSupplyRate(cashPrior, borrows, totalReserves, reserveFactorMantissa);
         uint interest = mul_(rate, sub_(add_(cashPrior, borrows), totalReserves));
         return div_(interest, sub_(add_(cashPrior, totalBorrows), totalReserves));
+    }
+
+    function estimateSupplyRatePerBlockAfterChange(uint256 change, bool repay) external view returns (uint) {
+        uint256 cashPriorNew;
+        uint256 totalBorrowsNew;
+
+        if (repay) {
+            cashPriorNew = add_(getCashPrior(), change);
+            totalBorrowsNew = sub_(totalBorrows, change);
+        } else {
+            cashPriorNew = sub_(getCashPrior(), change);
+            totalBorrowsNew = add_(totalBorrows, change);
+        }
+
+        uint borrows = sub_(totalBorrowsNew, getAlphaDebt());
+        uint rate = interestRateModel.getSupplyRate(cashPriorNew, borrows, totalReserves, reserveFactorMantissa);
+        uint interest = mul_(rate, sub_(add_(cashPriorNew, borrows), totalReserves));
+        return div_(interest, sub_(add_(cashPriorNew, totalBorrowsNew), totalReserves));
     }
 
     /**
