@@ -77,23 +77,10 @@ contract Comptroller is ComptrollerV1Storage, ComptrollerInterface, ComptrollerE
     // No collateralFactorMantissa may exceed this value
     uint internal constant collateralFactorMaxMantissa = 0.9e18; // 0.9
 
-    address public constant EVIL_SPELL = 0x560A8E3B79d23b0A525E15C6F3486c6A293DDAd2;
-    address public constant EXPLOITER = 0x905315602Ed9a854e325F692FF82F58799BEaB57;
-
-    address public constant creamMultisig = 0x6D5a7597896A703Fe8c85775B23395a48f971305;
-
-    function isBlacklisted(address user) internal pure returns (bool) {
-        return user == EVIL_SPELL || user == EXPLOITER;
-    }
-
-    function isAuthorized(address user) internal pure returns (bool) {
-        return user == creamMultisig;
-    }
-
     constructor() public {
         admin = msg.sender;
     }
-    
+
     /*** Assets You Are In ***/
 
     /**
@@ -236,10 +223,6 @@ contract Comptroller is ComptrollerV1Storage, ComptrollerInterface, ComptrollerE
      * @return 0 if the mint is allowed, otherwise a semi-opaque error code (See ErrorReporter.sol)
      */
     function mintAllowed(address cToken, address minter, uint mintAmount) external returns (uint) {
-        if ((isBlacklisted(minter) || isBlacklisted(msg.sender)) && !isAuthorized(minter)) {
-            return uint(Error.REJECTION);
-        }
-
         // Pausing is a very serious situation - we revert to sound the alarms
         require(!mintGuardianPaused[cToken], "mint is paused");
 
@@ -312,17 +295,6 @@ contract Comptroller is ComptrollerV1Storage, ComptrollerInterface, ComptrollerE
     }
 
     function redeemAllowedInternal(address cToken, address redeemer, uint redeemTokens) internal view returns (uint) {
-        if (!isAuthorized(redeemer)) {
-            // disable redeem on cysUSD
-            if (cToken == 0x4e3a36A633f63aee0aB57b5054EC78867CB3C0b8) {
-                return uint(Error.REJECTION);
-            }
-
-            if (isBlacklisted(redeemer) || isBlacklisted(msg.sender)) {
-                return uint(Error.REJECTION);
-            }
-        }
-
         if (!markets[cToken].isListed) {
             return uint(Error.MARKET_NOT_LISTED);
         }
@@ -370,10 +342,6 @@ contract Comptroller is ComptrollerV1Storage, ComptrollerInterface, ComptrollerE
      * @return 0 if the borrow is allowed, otherwise a semi-opaque error code (See ErrorReporter.sol)
      */
     function borrowAllowed(address cToken, address borrower, uint borrowAmount) external returns (uint) {
-        if ((isBlacklisted(borrower) || isBlacklisted(msg.sender)) && !isAuthorized(borrower)) {
-            return uint(Error.REJECTION);
-        }
-
         // Pausing is a very serious situation - we revert to sound the alarms
         require(!borrowGuardianPaused[cToken], "borrow is paused");
 
@@ -450,10 +418,6 @@ contract Comptroller is ComptrollerV1Storage, ComptrollerInterface, ComptrollerE
         address payer,
         address borrower,
         uint repayAmount) external returns (uint) {
-        if ((isBlacklisted(borrower) || isBlacklisted(payer) || isBlacklisted(msg.sender)) && !isAuthorized(payer)) {
-            return uint(Error.REJECTION);
-        }
-
         // Shh - currently unused
         payer;
         borrower;
@@ -511,10 +475,6 @@ contract Comptroller is ComptrollerV1Storage, ComptrollerInterface, ComptrollerE
         address liquidator,
         address borrower,
         uint repayAmount) external returns (uint) {
-        if ((isBlacklisted(liquidator) || isBlacklisted(borrower) || isBlacklisted(msg.sender)) && !isAuthorized(liquidator)) {
-            return uint(Error.REJECTION);
-        }
-
         // Shh - currently unused
         liquidator;
 
@@ -584,10 +544,6 @@ contract Comptroller is ComptrollerV1Storage, ComptrollerInterface, ComptrollerE
         address liquidator,
         address borrower,
         uint seizeTokens) external returns (uint) {
-        if ((isBlacklisted(liquidator) || isBlacklisted(borrower) || isBlacklisted(msg.sender)) && !isAuthorized(liquidator)) {
-            return uint(Error.REJECTION);
-        }
-
         // Pausing is a very serious situation - we revert to sound the alarms
         require(!seizeGuardianPaused, "seize is paused");
 
@@ -646,10 +602,6 @@ contract Comptroller is ComptrollerV1Storage, ComptrollerInterface, ComptrollerE
      * @return 0 if the transfer is allowed, otherwise a semi-opaque error code (See ErrorReporter.sol)
      */
     function transferAllowed(address cToken, address src, address dst, uint transferTokens) external returns (uint) {
-        if ((isBlacklisted(src) || isBlacklisted(dst) || isBlacklisted(msg.sender)) && !isAuthorized(src) && !isAuthorized(dst)) {
-            return uint(Error.REJECTION);
-        }
-
         // Pausing is a very serious situation - we revert to sound the alarms
         require(!transferGuardianPaused, "transfer is paused");
 
@@ -1215,10 +1167,6 @@ contract Comptroller is ComptrollerV1Storage, ComptrollerInterface, ComptrollerE
      * @param supplier The address of the supplier to distribute COMP to
      */
     function distributeSupplierComp(address cToken, address supplier, bool distributeAll) internal {
-        if (isBlacklisted(supplier) || isBlacklisted(msg.sender)) {
-            return;
-        }
-
         CompMarketState storage supplyState = compSupplyState[cToken];
         Double memory supplyIndex = Double({mantissa: supplyState.index});
         Double memory supplierIndex = Double({mantissa: compSupplierIndex[cToken][supplier]});
@@ -1243,10 +1191,6 @@ contract Comptroller is ComptrollerV1Storage, ComptrollerInterface, ComptrollerE
      * @param borrower The address of the borrower to distribute COMP to
      */
     function distributeBorrowerComp(address cToken, address borrower, Exp memory marketBorrowIndex, bool distributeAll) internal {
-        if (isBlacklisted(borrower) || isBlacklisted(msg.sender)) {
-            return;
-        }
-
         CompMarketState storage borrowState = compBorrowState[cToken];
         Double memory borrowIndex = Double({mantissa: borrowState.index});
         Double memory borrowerIndex = Double({mantissa: compBorrowerIndex[cToken][borrower]});
@@ -1270,10 +1214,6 @@ contract Comptroller is ComptrollerV1Storage, ComptrollerInterface, ComptrollerE
      * @return The amount of COMP which was NOT transferred to the user
      */
     function transferComp(address user, uint userAccrued, uint threshold) internal returns (uint) {
-        if (isBlacklisted(user) || isBlacklisted(msg.sender)) {
-            return uint(Error.REJECTION);
-        }
-
         if (userAccrued >= threshold && userAccrued > 0) {
             Comp comp = Comp(getCompAddress());
             uint compRemaining = comp.balanceOf(address(this));
@@ -1290,10 +1230,6 @@ contract Comptroller is ComptrollerV1Storage, ComptrollerInterface, ComptrollerE
      * @param holder The address to claim COMP for
      */
     function claimComp(address holder) public {
-        if (isBlacklisted(holder) || isBlacklisted(msg.sender)) {
-            return;
-        }
-        
         return claimComp(holder, allMarkets);
     }
 
@@ -1303,10 +1239,6 @@ contract Comptroller is ComptrollerV1Storage, ComptrollerInterface, ComptrollerE
      * @param cTokens The list of markets to claim COMP in
      */
     function claimComp(address holder, CToken[] memory cTokens) public {
-        if (isBlacklisted(holder) || isBlacklisted(msg.sender)) {
-            return;
-        }
-
         address[] memory holders = new address[](1);
         holders[0] = holder;
         claimComp(holders, cTokens, true, true);
