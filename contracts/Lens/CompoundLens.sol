@@ -228,9 +228,9 @@ contract CompoundLens {
         uint cTokenCount = cTokens.length;
         uint[] memory rewards = new uint[](cTokenCount);
         for (uint i = 0; i < cTokenCount; i++) {
-            uint balanceBefore = EIP20Interface(sushi).balanceOf(account);
+            uint balanceBefore = BEP20Interface(sushi).balanceOf(account);
             cTokens[i].claimSushi(account);
-            uint balanceAfter = EIP20Interface(sushi).balanceOf(account);
+            uint balanceAfter = BEP20Interface(sushi).balanceOf(account);
             rewards[i] = sub(balanceAfter, balanceBefore, "subtraction underflow");
         }
         return rewards;
@@ -240,9 +240,9 @@ contract CompoundLens {
         uint cTokenCount = cTokens.length;
         uint[] memory rewards = new uint[](cTokenCount);
         for (uint i = 0; i < cTokenCount; i++) {
-            uint balanceBefore = EIP20Interface(comp).balanceOf(account);
+            uint balanceBefore = BEP20Interface(comp).balanceOf(account);
             cTokens[i].claimComp(account);
-            uint balanceAfter = EIP20Interface(comp).balanceOf(account);
+            uint balanceAfter = BEP20Interface(comp).balanceOf(account);
             rewards[i] = sub(balanceAfter, balanceBefore, "subtraction underflow");
         }
         return rewards;
