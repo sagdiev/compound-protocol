@@ -24,6 +24,10 @@ interface CCTokenInterface {
     function claimComp(address) external returns (uint);
 }
 
+interface CCakeLPInterface {
+    function claimCake(address) external returns (uint);
+}
+
 contract CompoundLens {
     struct CTokenMetadata {
         address cToken;
@@ -243,6 +247,18 @@ contract CompoundLens {
             uint balanceBefore = BEP20Interface(comp).balanceOf(account);
             cTokens[i].claimComp(account);
             uint balanceAfter = BEP20Interface(comp).balanceOf(account);
+            rewards[i] = sub(balanceAfter, balanceBefore, "subtraction underflow");
+        }
+        return rewards;
+    }
+
+    function getClaimableCakeRewards(CCakeLPInterface[] calldata cTokens, address cake, address account) external returns (uint[] memory) {
+        uint cTokenCount = cTokens.length;
+        uint[] memory rewards = new uint[](cTokenCount);
+        for (uint i = 0; i < cTokenCount; i++) {
+            uint balanceBefore = BEP20Interface(cake).balanceOf(account);
+            cTokens[i].claimCake(account);
+            uint balanceAfter = BEP20Interface(cake).balanceOf(account);
             rewards[i] = sub(balanceAfter, balanceBefore, "subtraction underflow");
         }
         return rewards;
