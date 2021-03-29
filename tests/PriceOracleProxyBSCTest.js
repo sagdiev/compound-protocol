@@ -3,6 +3,7 @@ const {
 } = require('./Utils/Ethereum');
 
 const {
+  makeToken,
   makeCToken,
   makePriceOracle,
   makeBandReference,
@@ -46,7 +47,7 @@ describe('PriceOracleProxyBSC', () => {
       expect(reference).toEqual(bandReference._address);
     });
 
-    it("sets address of cEth", async () => {
+    it("sets address of cBNB", async () => {
       let configuredCEther = await call(oracle, "cBnbAddress");
       expect(configuredCEther).toEqual(cEth._address);
     });
@@ -100,12 +101,12 @@ describe('PriceOracleProxyBSC', () => {
       // Band not support yet.
       await readAndVerifyProxyPrice(cOther, 12);
 
-      await send(oracle, "_setUnderlyingSymbols", [[cOther._address], [underlyingSymbol]]);
+      await send(oracle, "_setSymbols", [[cOther.underlying._address], [underlyingSymbol]]);
 
       // Get price from Band reference.
       await readAndVerifyProxyPrice(cOther, 15);
 
-      await send(oracle, "_setUnderlyingSymbols", [[cOther._address], [""]]);
+      await send(oracle, "_setSymbols", [[cOther.underlying._address], [""]]);
 
       // Fallback to price oracle v1.
       await readAndVerifyProxyPrice(cOther, 12);
@@ -123,6 +124,68 @@ describe('PriceOracleProxyBSC', () => {
       let unlistedToken = await makeCToken({comptroller: cEth.comptroller});
 
       await readAndVerifyProxyPrice(unlistedToken, 0);
+    });
+  });
+
+  describe("_setAdmin", () => {
+    it("set admin successfully", async () => {
+      expect(await send(oracle, "_setAdmin", [accounts[0]])).toSucceed();
+    });
+
+    it("fails to set admin for non-admin", async () => {
+      await expect(send(oracle, "_setAdmin", [accounts[0]], {from: accounts[0]})).rejects.toRevert("revert only the admin may set new admin");
+    });
+  });
+
+  describe("_setGuardian", () => {
+    it("set guardian successfully", async () => {
+      expect(await send(oracle, "_setGuardian", [accounts[0]])).toSucceed();
+    });
+
+    it("fails to set guardian for non-admin", async () => {
+      await expect(send(oracle, "_setGuardian", [accounts[0]], {from: accounts[0]})).rejects.toRevert("revert only the admin may set new guardian");
+    });
+  });
+
+  describe("_setLPs", () => {
+    it("set LPs successfully", async () => {
+      expect(await send(oracle, "_setLPs", [[cOther._address], [true]])).toSucceed();
+    });
+
+    it("fails to set LPs for non-admin", async () => {
+      await expect(send(oracle, "_setLPs", [[cOther._address], [true]], {from: accounts[0]})).rejects.toRevert("revert only the admin may set LPs");
+    });
+
+    it("fails to set LPs for mismatched data", async () => {
+      await expect(send(oracle, "_setLPs", [[cOther._address], [true, true]])).rejects.toRevert("revert mismatched data");
+    });
+  });
+
+  describe("_setSymbols", () => {
+    const underlyingSymbol = "SYMBOL";
+    let token;
+
+    beforeEach(async () => {
+      token = await makeToken();
+    });
+
+    it("set symbol successfully", async () => {
+      expect(await send(oracle, "_setSymbols", [[token._address], [underlyingSymbol]])).toSucceed();
+    });
+
+    it("fails to set symbol for non-admin", async () => {
+      await expect(send(oracle, "_setSymbols", [[token._address], [underlyingSymbol]], {from: accounts[0]})).rejects.toRevert("revert only the admin or guardian may set symbols");
+      expect(await send(oracle, "_setGuardian", [accounts[0]])).toSucceed();
+      await expect(send(oracle, "_setSymbols", [[token._address], [underlyingSymbol]], {from: accounts[0]})).rejects.toRevert("revert guardian may only clear the symbol");
+    });
+
+    it("fails to set symbol for mismatched data", async () => {
+      await expect(send(oracle, "_setSymbols", [[token._address], []])).rejects.toRevert("revert mismatched data");
+    });
+
+    it("clear symbol successfully", async () => {
+      expect(await send(oracle, "_setGuardian", [accounts[0]])).toSucceed();
+      expect(await send(oracle, "_setSymbols", [[token._address], [""]], {from: accounts[0]})).toSucceed();
     });
   });
 });
